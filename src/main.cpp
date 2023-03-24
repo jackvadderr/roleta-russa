@@ -36,15 +36,23 @@ struct OSInfo {
     }
 };
 
-vector<string> list_files(const std::filesystem::path& dir_path) {
-    vector<string> files; // Vetor para armazenar os caminhos completos dos arquivos
+std::vector<std::string> list_files(const std::filesystem::path& dir_path) {
+    std::vector<std::string> files; // Vetor para armazenar os caminhos completos dos arquivos
 
-    // Percorre todos os arquivos e subdiretórios do diretório atual
-    for (const auto& entry : std::filesystem::recursive_directory_iterator(dir_path)) {
-        if (entry.is_regular_file()) {
-            // Se o item encontrado for um arquivo, adiciona o caminho completo ao vetor de arquivos
-            files.push_back(entry.path().string());
+    try {
+        // Percorre todos os arquivos e subdiretórios do diretório atual
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(dir_path)) {
+            if (entry.is_regular_file()) {
+                // Se o item encontrado for um arquivo, adiciona o caminho completo ao vetor de arquivos
+                files.push_back(entry.path().string());
+            }
         }
+    }
+    catch (const std::system_error& e) {
+        std::cerr << "Erro ao acessar o diretório: " << e.what() << std::endl;
+    }
+    catch (...) {
+        std::cerr << "Erro desconhecido ao acessar o diretório." << std::endl;
     }
 
     return files; // Retorna o vetor de arquivos encontrados
@@ -59,15 +67,18 @@ int main(){
         printf("Parabens voce foi o sortudo!");
     }
 
-    // Altera aqui o diretorio
-    std::vector<std::string> files = list_files("/"); // Chama a função passando o diretório raiz como argumento
+    try {
+        std::vector<std::string> files = list_files(os_info.dir_path); // Chama a função passando o diretório raiz como argumento
 
-    // Imprime o caminho completo dos arquivos encontrados
-    for (const auto& file : files) {
-        std::cout << file << std::endl;
+        // Imprime os caminhos completos dos arquivos encontrados
+        for (const auto& file : files) {
+            std::cout << file << std::endl;
+        }
     }
-
-    return 0;
+    catch (...) {
+        std::cerr << "Erro ao executar a função." << std::endl;
+        return 1;
+    }
 }
 
 int sorteio(){
