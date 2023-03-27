@@ -29,7 +29,7 @@ struct OSInfo {
             dir_path = "/Users/";
         #elif __linux__
             os_name = "Linux";
-            dir_path = "/home";
+            dir_path = "/home/jack/github/virus_rolleta_russa/teste";
         #else
             os_name = "Outro";
             dir_path = "/";

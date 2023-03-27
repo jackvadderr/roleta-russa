@@ -8,7 +8,9 @@
 #include <cryptopp/modes.h>
 #include <openssl/aes.h>
 #include <openssl/evp.h>
+#include <filesystem>
 
+using namespace std;
 
 class CriptografiaArquivo {
     public:
