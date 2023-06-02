@@ -1,7 +1,7 @@
 # Especifica o compilador a ser usado
 CC = g++
 # Especifica as flags de compilação a serem usadas
-CFLAGS = -Wall -Wextra -Werror -std=c++17 -pedantic
+CFLAGS = -Wall -Wextra -Werror -std=c++20 -pedantic -pthread -march=native -mtune=native 
 
 # Especifica os diretórios de origem, objeto e binário
 SRCDIR = src
